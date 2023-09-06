@@ -66,7 +66,8 @@ while date <= latest_date:
     for r in latest_readigs:
         try:
             #print(r)
-            sql = f""" SELECT * FROM dials WHERE SN = '{r["SN"]}' AND HOUR(RealReadDate) = '{date.hour}'"""
+            endDate = date + timedelta(minutes=59)
+            sql = f""" SELECT * FROM dials WHERE SN = '{r["SN"]}' AND RealReadDate BETWEEN '{date}' AND '{endDate}'"""
             cursor.execute(sql)
             read = cursor.fetchall()
             #print(read)
@@ -99,14 +100,14 @@ while date <= latest_date:
                         '{r["TCh8"]}'
                        )
                        ON DUPLICATE KEY UPDATE
-                        TCH1 = TCH1 + VALUES(TCH1),
-                        TCH2 = TCH2 + VALUES(TCH2),
-                        TCH3 = TCH3 + VALUES(TCH3),
-                        TCH4 = TCH4 + VALUES(TCH4),
-                        TCH5 = TCH5 + VALUES(TCH5),
-                        TCH6 = TCH6 + VALUES(TCH6),
-                        TCH7 = TCH7 + VALUES(TCH7),
-                        TCH8 = TCH8 + VALUES(TCH8),
+                        TCH1 = VALUES(TCH1),
+                        TCH2 = VALUES(TCH2),
+                        TCH3 = VALUES(TCH3),
+                        TCH4 = VALUES(TCH4),
+                        TCH5 = VALUES(TCH5),
+                        TCH6 = VALUES(TCH6),
+                        TCH7 = VALUES(TCH7),
+                        TCH8 = VALUES(TCH8),
                         """
             cursor.execute(sql)
             connect.commit()
