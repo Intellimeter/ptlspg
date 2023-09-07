@@ -52,38 +52,52 @@ if len(latest_readigs) == 0:
         cursor.execute(sql)
         latest_readigs = cursor.fetchall()
 
-    date = latest_readigs[0]["RealReadDate"]
-else:
-    date = latest_readigs[0]["RealReadDate"]
-    date = date + timedelta(hours=1)
+date = latest_readigs[0]["RealReadDate"]
+
+#Load multipliers
+mult = {}
+i = 0
+for r in latest_readigs:
+    mult[r["SN"]] = []
+    for ch in range(1,9):
+        sql = """ SELECT IFNULL(multiplier,1) as mult FROM meters where ModbusId = {} AND SN like '%0{}'
+              """.format(r["SN"],ch)
+        cursor.execute(sql)
+        m = cursor.fetchall()
+        if len(m) != 0:
+            mult[r["SN"]].append(m[0]["mult"])
+        else:
+            mult[r["SN"]].append(1.0)
+
+print(mult)
 
 print("Filling accum from {} to {}".format(date, latest_date))
 
-
-
 while date <= latest_date:
-    #print(date)
+    print(date)
     for r in latest_readigs:
         try:
             #print(r)
-            endDate = date + timedelta(minutes=59)
-            sql = f""" SELECT * FROM dials WHERE SN = '{r["SN"]}' AND RealReadDate BETWEEN '{date}' AND '{endDate}'"""
+            startDate = date + timedelta(minutes=1)
+            endDate = date + timedelta(hours=1)
+
+            sql = f""" SELECT * FROM dials WHERE SN = '{r["SN"]}' AND RealReadDate BETWEEN '{startDate}' AND '{endDate}'"""
             cursor.execute(sql)
             read = cursor.fetchall()
             #print(read)
             
-            r["RealReadDate"] = date
-            r["ReadDate"] = time.mktime(date.timetuple())
+            r["RealReadDate"] = endDate
+            r["ReadDate"] = time.mktime(endDate.timetuple())
 
             for rs in read:
-                r["TCh1"] = r["TCh1"] + rs["Ch1"]
-                r["TCh2"] = r["TCh2"] + rs["Ch2"]
-                r["TCh3"] = r["TCh3"] + rs["Ch3"]
-                r["TCh4"] = r["TCh4"] + rs["Ch4"]
-                r["TCh5"] = r["TCh5"] + rs["Ch5"]
-                r["TCh6"] = r["TCh6"] + rs["Ch6"]
-                r["TCh7"] = r["TCh7"] + rs["Ch7"]
-                r["TCh8"] = r["TCh8"] + rs["Ch8"]
+                r["TCh1"] = r["TCh1"] + (rs["Ch1"] * mult[r["SN"]][0])
+                r["TCh2"] = r["TCh2"] + (rs["Ch2"] * mult[r["SN"]][1])
+                r["TCh3"] = r["TCh3"] + (rs["Ch3"] * mult[r["SN"]][2])
+                r["TCh4"] = r["TCh4"] + (rs["Ch4"] * mult[r["SN"]][3])
+                r["TCh5"] = r["TCh5"] + (rs["Ch5"] * mult[r["SN"]][4])
+                r["TCh6"] = r["TCh6"] + (rs["Ch6"] * mult[r["SN"]][5])
+                r["TCh7"] = r["TCh7"] + (rs["Ch7"] * mult[r["SN"]][6])
+                r["TCh8"] = r["TCh8"] + (rs["Ch8"] * mult[r["SN"]][7])
                 #print(r)
             
             sql = f""" INSERT INTO accum VALUES (
@@ -107,11 +121,10 @@ while date <= latest_date:
                         TCH5 = VALUES(TCH5),
                         TCH6 = VALUES(TCH6),
                         TCH7 = VALUES(TCH7),
-                        TCH8 = VALUES(TCH8),
+                        TCH8 = VALUES(TCH8)
                         """
             cursor.execute(sql)
             connect.commit()
         except Exception as e:
             print(e)
     date = date + timedelta(hours=1)
-    print(date)
